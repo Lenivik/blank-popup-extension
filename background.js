@@ -1,3 +1,8 @@
+let popupId = null;
+let shouldClosePopup = false;
+let popupJustOpened = false;
+let openerTabId = null; // To track the ID of the tab that opened the popup
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   let windowInfo = request.windowInfo;
 
@@ -15,9 +20,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     left: Math.round(left),
     top: Math.round(top)
   }, (window) => {
+    console.log("Popup created with ID: " + window.id);
+    console.log("Opener tab ID from sender: " + sender.tab.id);
     popupId = window.id;
+    openerTabId = sender.tab.id;
+
+    console.log("Stored popupId: " + popupId);
+    console.log("Stored openerTabId: " + openerTabId);
+    
     popupJustOpened = true;
-    // Set a timeout to allow user interaction with the popup
     setTimeout(() => {
       popupJustOpened = false;
       shouldClosePopup = true;
@@ -25,10 +36,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   });
 });
 
-chrome.windows.onFocusChanged.addListener((windowId) => {
-  if (windowId !== popupId && popupId !== null && shouldClosePopup && !popupJustOpened) {
-    chrome.windows.remove(popupId);
-    popupId = null;
-    shouldClosePopup = false;
+chrome.windows.onFocusChanged.addListener(focusedWindowId => {
+  if (focusedWindowId === chrome.windows.WINDOW_ID_NONE) {
+    return; // No window is currently focused
+  }
+
+  // Check if openerTabId is valid before calling chrome.tabs.get
+  if (openerTabId !== null) {
+    chrome.tabs.get(openerTabId, (tab) => {
+      if (chrome.runtime.lastError || !tab) {
+        console.log("Error retrieving tab or tab does not exist: " + (chrome.runtime.lastError ? chrome.runtime.lastError.message : ""));
+        return;
+      }
+
+      if (tab.windowId === focusedWindowId && popupId !== null && shouldClosePopup && !popupJustOpened) {
+        console.log("Closing popup");
+        chrome.windows.remove(popupId);
+        popupId = null;
+        shouldClosePopup = false;
+        openerTabId = null;
+      }
+    });
   }
 });

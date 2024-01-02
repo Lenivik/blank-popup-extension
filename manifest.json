@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Open in Popup",
     "version": "1.0",
-    "permissions": ["activeTab", "windows"],
+    "permissions": ["activeTab", "tabs", "windows"],
     "background": {
       "service_worker": "background.js"
     },
