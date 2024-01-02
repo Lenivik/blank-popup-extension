@@ -17,3 +17,12 @@ document.addEventListener('click', function(event) {
     });
   }
 });
+
+// Listen for messages from the background script
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  if (request.action === "blurPage") {
+    document.body.style.filter = "blur(5px)";
+  } else if (request.action === "unblurPage") {
+    document.body.style.filter = "none";
+  }
+});

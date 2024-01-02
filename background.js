@@ -10,7 +10,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const popupWidth = Math.round(windowInfo.outerWidth * 0.8); // 80% of the original window width
   const popupHeight = Math.round(windowInfo.outerHeight * 0.8); // 80% of the original window height
   const left = windowInfo.screenX + (windowInfo.outerWidth - popupWidth) / 2;
-  const top = windowInfo.screenY + (windowInfo.outerHeight - popupHeight) / 2;
+  const top = windowInfo.screenY + (windowInfo.outerHeight - popupHeight) / 2 + 50;
 
   chrome.windows.create({
     url: request.url,
@@ -20,13 +20,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     left: Math.round(left),
     top: Math.round(top)
   }, (window) => {
-    console.log("Popup created with ID: " + window.id);
-    console.log("Opener tab ID from sender: " + sender.tab.id);
     popupId = window.id;
     openerTabId = sender.tab.id;
 
-    console.log("Stored popupId: " + popupId);
-    console.log("Stored openerTabId: " + openerTabId);
+    // Send message to content script to blur the page
+    chrome.tabs.sendMessage(openerTabId, { action: "blurPage" });
     
     popupJustOpened = true;
     setTimeout(() => {
@@ -41,21 +39,19 @@ chrome.windows.onFocusChanged.addListener(focusedWindowId => {
     return; // No window is currently focused
   }
 
-  // Check if openerTabId is valid before calling chrome.tabs.get
-  if (openerTabId !== null) {
-    chrome.tabs.get(openerTabId, (tab) => {
-      if (chrome.runtime.lastError || !tab) {
-        console.log("Error retrieving tab or tab does not exist: " + (chrome.runtime.lastError ? chrome.runtime.lastError.message : ""));
-        return;
-      }
+  chrome.tabs.get(openerTabId, (tab) => {
+    if (chrome.runtime.lastError || !tab) {
+      return;
+    }
 
-      if (tab.windowId === focusedWindowId && popupId !== null && shouldClosePopup && !popupJustOpened) {
-        console.log("Closing popup");
-        chrome.windows.remove(popupId);
-        popupId = null;
-        shouldClosePopup = false;
-        openerTabId = null;
-      }
-    });
-  }
+    if (tab.windowId === focusedWindowId && popupId !== null && shouldClosePopup && !popupJustOpened) {
+      chrome.windows.remove(popupId);
+      popupId = null;
+      shouldClosePopup = false;
+      openerTabId = null;
+
+      // Send message to content script to unblur the page
+      chrome.tabs.sendMessage(tab.id, { action: "unblurPage" });
+    }
+  });
 });
